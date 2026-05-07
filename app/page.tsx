@@ -1,525 +1,255 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import Link from "next/link";
+import { useState } from "react";
 import { supabase } from "./lib/supabase";
 
-type Action = {
-  id: number;
-  date: string;
-  label: string;
-  amount: number;
-  user_id: string;
-};
-
-export default function Home() {
-  const today = new Date().toISOString().split("T")[0];
-
-  const [user, setUser] = useState<User | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [selectedDate, setSelectedDate] = useState(today);
-  const [selectedProgress, setSelectedProgress] = useState(0);
-  const [selectedActions, setSelectedActions] = useState<Action[]>([]);
-  const [progressEffect, setProgressEffect] = useState<"gain" | "loss" | null>(
-    null
-  );
-
-  const calendarRef = useRef<any>(null);
+export default function LandingPage() {
+  const [showPricing, setShowPricing] = useState(false);
 
   async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}/tracker`,
       },
     });
 
-    if (error) {
-      console.error("Google login error:", error);
-    }
-  }
-
-  async function signOut() {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      console.error("Logout error:", error);
-    }
-  }
-
-  async function loadTodayProgress(currentUser: User) {
-    const { data, error } = await supabase
-      .from("daily_progress")
-      .select("value")
-      .eq("date", today)
-      .eq("user_id", currentUser.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Load today error:", error);
-      return;
-    }
-
-    setProgress(data?.value ?? 0);
-  }
-
-  async function loadSelectedDay(date: string, currentUser: User) {
-    const { data: progressData, error: progressError } = await supabase
-      .from("daily_progress")
-      .select("value")
-      .eq("date", date)
-      .eq("user_id", currentUser.id)
-      .maybeSingle();
-
-    if (progressError) {
-      console.error("Load selected progress error:", progressError);
-      return;
-    }
-
-    const { data: actionsData, error: actionsError } = await supabase
-      .from("daily_actions")
-      .select("id, date, label, amount, user_id")
-      .eq("date", date)
-      .eq("user_id", currentUser.id)
-      .order("id", { ascending: false });
-
-    if (actionsError) {
-      console.error("Load selected actions error:", actionsError);
-      return;
-    }
-
-    setSelectedDate(date);
-    setSelectedProgress(progressData?.value ?? 0);
-    setSelectedActions(actionsData ?? []);
-  }
-
-  async function addAction(label: string, amount: number) {
-    if (!user) return;
-
-    const newValue = Math.max(0, Math.min(progress + amount, 100));
-
-    setProgressEffect(amount > 0 ? "gain" : "loss");
-    setProgress(newValue);
-
-    setTimeout(() => {
-      setProgressEffect(null);
-    }, 600);
-
-    const { data: existingProgress, error: checkError } = await supabase
-  .from("daily_progress")
-      .select("date, user_id")
-      .eq("date", today)
-  .eq("user_id", user.id)
-  .maybeSingle();
-
-if (checkError) {
-  console.error("Check progress error:", JSON.stringify(checkError, null, 2));
-  return;
-}
-
-let progressError;
-
-if (existingProgress) {
-  const { error } = await supabase
-    .from("daily_progress")
-    .update({
-      value: newValue,
-    })
-    .eq("date", today)
-.eq("user_id", user.id);
-
-  progressError = error;
-} else {
-  const { error } = await supabase.from("daily_progress").insert({
-    date: today,
-    value: newValue,
-    user_id: user.id,
-  });
-
-  progressError = error;
-}
-
-if (progressError) {
-  console.error("Save progress error:", JSON.stringify(progressError, null, 2));
-  return;
-}
-    const { error: actionError } = await supabase.from("daily_actions").insert({
-      date: today,
-      label,
-      amount,
-      user_id: user.id,
-    });
-
-    if (actionError) {
-      console.error("Save action error:", actionError);
-      return;
-    }
-
-    await loadTodayProgress(user);
-
-    if (selectedDate === today) {
-      await loadSelectedDay(today, user);
-    }
-  }
-
-  async function undoLastAction() {
-  if (!user) return;
-
-  const { data: lastAction, error: fetchError } = await supabase
-    .from("daily_actions")
-    .select("*")
-    .eq("date", today)
-    .eq("user_id", user.id)
-    .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (fetchError) {
-    console.error("Fetch last action error:", fetchError);
-    return;
-  }
-
-  if (!lastAction) return;
-
-  const { error: deleteError } = await supabase
-    .from("daily_actions")
-    .delete()
-    .eq("id", lastAction.id)
-    .eq("user_id", user.id);
-
-  if (deleteError) {
-    console.error("Delete action error:", deleteError);
-    return;
-  }
-
-  const { data: remainingActions, error: recalcError } = await supabase
-    .from("daily_actions")
-    .select("amount")
-    .eq("date", today)
-    .eq("user_id", user.id);
-
-  if (recalcError) {
-    console.error("Recalculate error:", recalcError);
-    return;
-  }
-
-  const newProgress = Math.max(
-    0,
-    Math.min(
-      (remainingActions ?? []).reduce((sum, action) => sum + action.amount, 0),
-      100
-    )
-  );
-
-  const { data: existingProgress, error: checkProgressError } = await supabase
-    .from("daily_progress")
-    .select("date, user_id")
-    .eq("date", today)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (checkProgressError) {
-    console.error("Check progress error:", JSON.stringify(checkProgressError, null, 2));
-    return;
-  }
-
-  let updateProgressError;
-
-  if (existingProgress) {
-    const { error } = await supabase
-      .from("daily_progress")
-      .update({ value: newProgress })
-      .eq("date", today)
-      .eq("user_id", user.id);
-
-    updateProgressError = error;
-  } else {
-    const { error } = await supabase.from("daily_progress").insert({
-      date: today,
-      value: newProgress,
-      user_id: user.id,
-    });
-
-    updateProgressError = error;
-  }
-
-  if (updateProgressError) {
-    console.error("Update progress error:", JSON.stringify(updateProgressError, null, 2));
-    return;
-  }
-
-  setProgressEffect(lastAction.amount > 0 ? "loss" : "gain");
-  setProgress(newProgress);
-
-  setTimeout(() => {
-    setProgressEffect(null);
-  }, 600);
-
-  await loadTodayProgress(user);
-
-  if (selectedDate === today) {
-    await loadSelectedDay(today, user);
-  }
-}
-  function groupActions(actions: Action[]) {
-    return actions.reduce<Record<string, Action[]>>((groups, action) => {
-      if (!groups[action.label]) {
-        groups[action.label] = [];
-      }
-
-      groups[action.label].push(action);
-      return groups;
-    }, {});
-  }
-
-  const goodActions = selectedActions.filter((action) => action.amount > 0);
-  const badActions = selectedActions.filter((action) => action.amount < 0);
-
-  const groupedGoodActions = groupActions(goodActions);
-  const groupedBadActions = groupActions(badActions);
-
-  useEffect(() => {
-    import("cally");
-
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-
-    loadTodayProgress(user);
-    loadSelectedDay(today, user);
-
-    const calendar = calendarRef.current;
-    if (!calendar) return;
-
-    const handleChange = () => {
-      const date = calendar.value;
-
-      if (!date) return;
-
-      loadSelectedDay(date, user);
-    };
-
-    calendar.addEventListener("change", handleChange);
-
-    return () => {
-      calendar.removeEventListener("change", handleChange);
-    };
-  }, [user]);
-
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-6">
-        <div className="card bg-base-100 shadow-xl w-full max-w-sm">
-          <div className="card-body items-center text-center">
-            <h1 className="card-title">Personality Tracker</h1>
-
-            <button className="btn btn-primary w-full" onClick={signInWithGoogle}>
-              Continue with Google
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    if (error) console.error("Google login error:", error);
   }
 
   return (
-    <div className="flex flex-col justify-center items-center min-h-screen gap-6 p-6">
-      <div className="card bg-base-100 shadow-xl w-full max-w-md">
-        <div className="card-body items-center text-center">
-          <div className="w-full flex justify-between items-center">
+    <main className="min-h-screen overflow-hidden bg-[#F6FBF4] text-[#1F3A2E]">
+      {/* Navbar */}
+      <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-lg font-black text-[#1F3A2E]"
+        >
+          <span className="text-2xl">🌱</span>
+          <span>CharacterArc</span>
+        </Link>
+
+        <nav className="hidden items-center gap-10 text-sm font-semibold md:flex">
+          <button
+            onClick={() => setShowPricing(true)}
+            className="transition hover:text-[#6BAA75]"
+          >
+            Pricing
+          </button>
+
+          <a
+            href="#how-it-works"
+            className="transition hover:text-[#6BAA75]"
+          >
+            How it works
+          </a>
+        </nav>
+
+        <button
+          onClick={signInWithGoogle}
+          className="rounded-full bg-[#7BC47F] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:scale-105 hover:bg-[#68b06c]"
+        >
+          Get Started
+        </button>
+      </header>
+
+      {/* Pricing Modal */}
+      {showPricing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1F3A2E]/30 px-6">
+          <div className="relative w-full max-w-md rounded-3xl border border-[#DDEBDD] bg-[#F9FFF8] p-8 text-center shadow-2xl">
             <button
-              className="btn btn-ghost btn-sm btn-circle text-lg"
-              onClick={undoLastAction}
-              title="Undo last action"
+              onClick={() => setShowPricing(false)}
+              className="absolute right-5 top-4 text-2xl font-bold text-[#5F7A6B] hover:text-[#1F3A2E]"
             >
-              ↩
+              ×
             </button>
 
-            <button className="btn btn-ghost btn-sm" onClick={signOut}>
-              Logout
-            </button>
-          </div>
+            <h2 className="text-4xl font-black text-[#1F3A2E]">
+              It’s free.
+            </h2>
 
-          <h1 className="card-title">Today</h1>
-
-          <div className="w-56 h-4 bg-base-300 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ease-out ${
-                progressEffect === "loss"
-                  ? "bg-error"
-                  : progressEffect === "gain"
-                  ? "bg-success"
-                  : "bg-primary"
-              }`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-          <p>{progress}%</p>
-          <p className="text-sm text-gray-500">Your daily personality score</p>
-
-          <div className="flex gap-4 flex-wrap justify-center">
-            <button
-              className="btn btn-success"
-              onClick={() => addAction("Helped someone", 20)}
-            >
-              Help someone
-            </button>
+            <p className="mt-4 text-lg text-[#5F7A6B]">
+              No subscriptions. No trial. No weird premium morality package.
+            </p>
 
             <button
-              className="btn btn-primary"
-              onClick={() => addAction("Complimented someone", 10)}
+              onClick={() => setShowPricing(false)}
+              className="mt-8 rounded-full bg-[#7BC47F] px-8 py-3 font-bold text-white transition hover:bg-[#68b06c]"
             >
-              Compliment
-            </button>
-
-            <button
-              className="btn btn-warning"
-              onClick={() => addAction("Insulted someone", -10)}
-            >
-              Insult
-            </button>
-
-            <button
-              className="btn btn-error"
-              onClick={() => addAction("Hurt someone", -20)}
-            >
-              Hurt someone
+              Nice
             </button>
           </div>
         </div>
-      </div>
+      )}
 
-      <calendar-date
-        ref={calendarRef}
-        className="cally bg-base-100 border border-base-300 shadow-lg rounded-box"
-      >
-        <svg
-          aria-label="Previous"
-          className="fill-current size-4"
-          slot="previous"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-        >
-          <path fill="currentColor" d="M15.75 19.5 8.25 12l7.5-7.5" />
-        </svg>
+      {/* Hero Section */}
+      <section className="relative mx-auto flex min-h-[80vh] max-w-7xl items-center px-6 py-20">
+        {/* Main hero content */}
+        <div className="mx-auto max-w-4xl text-center">
+          <p className="mb-6 text-sm font-semibold tracking-wide text-[#6BAA75]">
+            Track your character in real life
+          </p>
 
-        <svg
-          aria-label="Next"
-          className="fill-current size-4"
-          slot="next"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-        >
-          <path fill="currentColor" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-        </svg>
+          <h1 className="text-5xl font-black leading-tight tracking-tight text-[#1F3A2E] md:text-7xl">
+            Become a better person,
+            <br />
+            one action at a time
+          </h1>
 
-        <calendar-month></calendar-month>
-      </calendar-date>
 
-      <div className="card bg-base-100 shadow-xl w-full max-w-2xl">
-        <div className="card-body">
-          <h2 className="card-title">Selected day</h2>
+          <p className="mx-auto mt-10 max-w-2xl text-lg leading-8 text-[#5F7A6B]">
+            A simple real-life character tracker for the tiny choices that shape
+            who you become. Log good actions, bad actions, and watch your daily
+            score reflect the person you're becoming.
+          </p>
 
-          <p className="text-sm text-gray-500">{selectedDate}</p>
+          <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <button
+  onClick={signInWithGoogle}
+  className="cursor-pointer rounded-full bg-[#7BC47F] px-12 py-4 font-black text-white shadow-lg transition-all duration-200 hover:-translate-y-1 hover:scale-105 hover:bg-[#68b06c] hover:shadow-xl active:scale-95"
+>
+  Start tracking →
+</button>
 
-          <progress
-            className="progress progress-secondary w-full"
-            value={selectedProgress}
-            max={100}
-          />
+            <a
+              href="#how-it-works"
+              className="rounded-full border-2 border-[#7BC47F] px-10 py-4 font-bold text-[#1F3A2E] transition hover:bg-[#7BC47F] hover:text-white"
+            >
+              How it works
+            </a>
+          </div>
 
-          <p>{selectedProgress}%</p>
-
-          <div className="divider">Actions</div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-            <div>
-              <h3 className="font-bold text-success mb-2">Good actions</h3>
-
-              {goodActions.length === 0 ? (
-                <p className="text-sm text-gray-500">No good actions saved.</p>
-              ) : (
-                <div className="space-y-2">
-                  {Object.entries(groupedGoodActions).map(([label, actions]) => (
-                    <details
-                      key={label}
-                      className="collapse collapse-arrow bg-base-200"
-                    >
-                      <summary className="collapse-title font-medium">
-                        {label} × {actions.length}
-                      </summary>
-
-                      <div className="collapse-content space-y-2">
-                        {actions.map((action) => (
-                          <div
-                            key={action.id}
-                            className="flex justify-between items-center"
-                          >
-                            <span className="text-sm">{action.label}</span>
-                            <span className="text-success font-bold">
-                              +{action.amount}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h3 className="font-bold text-error mb-2">Bad actions</h3>
-
-              {badActions.length === 0 ? (
-                <p className="text-sm text-gray-500">No bad actions saved.</p>
-              ) : (
-                <div className="space-y-2">
-                  {Object.entries(groupedBadActions).map(([label, actions]) => (
-                    <details
-                      key={label}
-                      className="collapse collapse-arrow bg-base-200"
-                    >
-                      <summary className="collapse-title font-medium">
-                        {label} × {actions.length}
-                      </summary>
-
-                      <div className="collapse-content space-y-2">
-                        {actions.map((action) => (
-                          <div
-                            key={action.id}
-                            className="flex justify-between items-center"
-                          >
-                            <span className="text-sm">{action.label}</span>
-                            <span className="text-error font-bold">
-                              {action.amount}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  ))}
-                </div>
-              )}
-            </div>
+          <div className="mx-auto mt-14 w-fit rounded-full border border-[#DDEBDD] bg-[#E8F5E9] px-6 py-4 text-left shadow-sm">
+            <p className="font-black text-[#1F3A2E]">
+              “Small actions. Real progress.”
+            </p>
+            <p className="text-sm text-[#5F7A6B]">
+              — someone trying to improve
+            </p>
           </div>
         </div>
-      </div>
+
+
+        {/* Before/After emoji */}
+<div className="absolute right-10 top-1/2 hidden -translate-y-1/2 xl:block group">
+  <div className="flex flex-col items-center">
+    
+    {/* Emoji */}
+    <div className="text-7xl transition-all duration-300 group-hover:scale-125">
+      <span className="group-hover:hidden">😠</span>
+      <span className="hidden group-hover:inline">😄</span>
     </div>
+
+    {/* Text */}
+    <p className="mt-4 text-lg font-bold text-[#5F7A6B] transition-all duration-300 group-hover:scale-125 group-hover:text-[#6BAA75]">
+      <span className="group-hover:hidden">Before</span>
+      <span className="hidden group-hover:inline">After</span>
+    </p>
+  </div>
+        </div>
+        {/* Heart hover effect */}
+<div className="absolute left-10 top-1/2 hidden -translate-y-1/2 xl:block group">
+  <div className="flex flex-col items-center rotate-12">
+    
+    {/* Heart */}
+    <div className="text-7xl transition-all duration-300 group-hover:scale-125">
+      <span className="group-hover:hidden">🖤</span>
+      <span className="hidden group-hover:inline">❤️</span>
+    </div>
+
+    {/* Text */}
+    <p className="mt-4 text-lg font-bold text-[#5F7A6B] transition-all duration-300 group-hover:scale-125 group-hover:text-red-500">
+      <span className="group-hover:hidden">Cold</span>
+      <span className="hidden group-hover:inline">Healing</span>
+    </p>
+  </div>
+</div>
+
+      </section>
+
+      {/* How it works */}
+      <section id="how-it-works" className="px-6 pb-24">
+        <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
+          {[
+            [
+              "1. Add actions",
+              "Log the good, bad, awkward, and surprisingly decent things you do.",
+            ],
+            [
+              "2. Watch your score",
+              "Your daily character meter moves based on your choices.",
+            ],
+            [
+              "3. Review your arc",
+              "Use your history to see whether you're actually improving.",
+            ],
+          ].map(([title, text]) => (
+            <div
+              key={title}
+              className="rounded-3xl border border-[#DDEBDD] bg-white p-8 text-[#1F3A2E] shadow-xl"
+            >
+              <h2 className="text-xl font-black">{title}</h2>
+              <p className="mt-4 leading-7 text-[#5F7A6B]">{text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+{/* Why people fail section */}
+<section className="mx-6 mb-16 rounded-[40px] bg-[#2F1B16] px-6 py-24 text-center text-[#FDE8C8] md:px-12">
+  <div className="mx-auto max-w-4xl">
+    <h2 className="text-4xl font-black leading-tight md:text-6xl">
+      People want to change.
+      <br />
+      After a few days...
+      <br />
+      they forget.
+    </h2>
+
+    <p className="mx-auto mt-8 max-w-2xl text-lg text-[#D9B89C]">
+      Motivation fades fast. Most people start strong, lose awareness,
+      fall back into old habits, and end up exactly where they started.
+    </p>
+  </div>
+
+  <div className="mt-20 flex flex-col items-center justify-center gap-10 md:flex-row md:gap-16">
+    
+    {/* Step 1 */}
+    <div className="flex flex-col items-center">
+      <div className="text-6xl">😤</div>
+      <p className="mt-4 max-w-[180px] font-bold">
+        Feels motivated to improve
+      </p>
+    </div>
+
+    {/* Arrow */}
+    <div className="hidden text-4xl md:block">
+      →
+    </div>
+
+    {/* Step 2 */}
+    <div className="flex flex-col items-center">
+      <div className="text-6xl">😴</div>
+      <p className="mt-4 max-w-[180px] font-bold">
+        Forgets after a few days
+      </p>
+    </div>
+
+    {/* Arrow */}
+    <div className="hidden text-4xl md:block">
+      →
+    </div>
+
+    {/* Step 3 */}
+    <div className="flex flex-col items-center">
+      <div className="text-6xl">😬</div>
+      <p className="mt-4 max-w-[180px] font-bold">
+        Ends up back where they started
+      </p>
+    </div>
+  </div>
+</section>
+    </main>
   );
 }
