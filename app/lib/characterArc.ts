@@ -48,10 +48,29 @@ export const LEVEL_THRESHOLDS = [
   0, 100, 250, 500, 850, 1300, 1850, 2500, 3250, 4100,
 ];
 export const MIN_MONTHLY_TREND_BASELINE = 50;
-export const TODAY = new Date().toISOString().split("T")[0];
+
+function formatDateOnly(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+export const TODAY = formatDateOnly(new Date());
 
 export const ACTION_RULES: Record<string, ActionRule> = {
   "Helped someone": {
+    weight: 15,
+    traits: {
+      Kindness: 15,
+      Empathy: 10,
+      Respectfulness: 8,
+      Discipline: 3,
+    },
+    reflectionRequiredAfter: 2,
+  },
+  "Help someone": {
     weight: 15,
     traits: {
       Kindness: 15,
@@ -70,6 +89,15 @@ export const ACTION_RULES: Record<string, ActionRule> = {
       Discipline: 2,
     },
   },
+  Compliment: {
+    weight: 10,
+    traits: {
+      Confidence: 10,
+      Kindness: 6,
+      Empathy: 4,
+      Discipline: 2,
+    },
+  },
   "Insulted someone": {
     weight: -12,
     traits: {
@@ -79,7 +107,16 @@ export const ACTION_RULES: Record<string, ActionRule> = {
       Discipline: -4,
     },
   },
-  "Hurt someone": {
+  Insult: {
+    weight: -12,
+    traits: {
+      Respectfulness: -12,
+      Empathy: -8,
+      Confidence: -3,
+      Discipline: -4,
+    },
+  },
+  "Acted negatively": {
     weight: -25,
     traits: {
       Kindness: -25,
@@ -92,8 +129,35 @@ export const ACTION_RULES: Record<string, ActionRule> = {
   },
 };
 
+export const TRACKER_ACTIONS = [
+  {
+    label: "Helped someone",
+    amount: 20,
+    tone: "kindness",
+  },
+  {
+    label: "Complimented someone",
+    amount: 10,
+    tone: "confidence",
+  },
+  {
+    label: "Insulted someone",
+    amount: -10,
+    tone: "warning",
+  },
+  {
+    label: "Acted negatively",
+    amount: -20,
+    tone: "negative",
+  },
+] as const;
+
 export function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max));
+}
+
+export function getScoreBarPercent(score: number) {
+  return clamp(score, 0, 100);
 }
 
 export function getActionRule(label: string) {
@@ -177,9 +241,10 @@ export function getTraitLevel(xp: number) {
 }
 
 export function getDateDaysAgo(date: string, days: number) {
-  const nextDate = new Date(`${date}T00:00:00`);
+  const [year, month, day] = date.split("-").map(Number);
+  const nextDate = new Date(year, (month ?? 1) - 1, day ?? 1);
   nextDate.setDate(nextDate.getDate() - days);
-  return nextDate.toISOString().split("T")[0];
+  return formatDateOnly(nextDate);
 }
 
 export function getActionsForDate(actions: Action[], date: string) {
@@ -239,9 +304,8 @@ export function calculateDailyScore(
     15
   );
 
-  return clamp(
-    50 + weightedScore + negativeAvoidedBonus + streakBonus + traitGrowthBonus,
-    0,
+  return Math.min(
+    weightedScore + negativeAvoidedBonus + streakBonus + traitGrowthBonus,
     100
   );
 }

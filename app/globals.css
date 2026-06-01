@@ -3,26 +3,227 @@
   themes: light --default, dark --prefersdark, cupcake;
 };
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fff4df;
+  --foreground: #25221f;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-editorial);
+  --font-mono: var(--font-mono-stack);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+  scroll-behavior: auto;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-editorial);
+  text-rendering: optimizeLegibility;
+}
+
+html.dark-screen {
+  --background: #151a22;
+  --foreground: #f7efe6;
+  color-scheme: dark;
+}
+
+html.dark-screen body,
+html.dark-screen main,
+html.dark-screen footer {
+  background-color: #151a22 !important;
+  color: #f7efe6 !important;
+}
+
+html.dark-screen [class*="bg-white"],
+html.dark-screen [class*="bg-[#FFFFFF]"],
+html.dark-screen [class*="bg-[#fff8ee]"],
+html.dark-screen [class*="bg-[#fff6ec]"],
+html.dark-screen [class*="bg-[#fff4e8]"],
+html.dark-screen [class*="bg-[#F0FBFF]"],
+html.dark-screen [class*="bg-[#E8F8FB]"] {
+  background-color: rgba(35, 41, 52, 0.88) !important;
+}
+
+html.dark-screen [class*="text-[#171c2d]"],
+html.dark-screen [class*="text-[#111827]"],
+html.dark-screen [class*="text-[#3d4556]"],
+html.dark-screen [class*="text-[#5c6472]"],
+html.dark-screen [class*="text-[#6e7583]"],
+html.dark-screen [class*="text-[#7a8190]"],
+html.dark-screen [class*="text-[#8c8177]"] {
+  color: #f7efe6 !important;
+}
+
+html.dark-screen [class*="border-[#f0ded0]"],
+html.dark-screen [class*="border-[#f1dccc]"],
+html.dark-screen [class*="border-[#B9EEF8]"] {
+  border-color: rgba(247, 239, 230, 0.18) !important;
+}
+
+html.dark-screen [class*="shadow-"] {
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28) !important;
+}
+
+html.dark-screen input,
+html.dark-screen textarea {
+  background-color: rgba(35, 41, 52, 0.9) !important;
+  color: #f7efe6 !important;
+}
+
+html.dark-screen .landing-page {
+  background-color: #151a22 !important;
+  color: #f7efe6 !important;
+}
+
+html.dark-screen .landing-title,
+html.dark-screen .landing-demo-heading {
+  color: #fff8ee !important;
+}
+
+html.dark-screen .landing-muted,
+html.dark-screen .landing-demo-meta {
+  color: #d8cfc4 !important;
+}
+
+html.dark-screen .landing-green-text,
+html.dark-screen .landing-nav a:hover {
+  color: #a9d7b7 !important;
+}
+
+html.dark-screen .landing-chip {
+  border-color: rgba(169, 215, 183, 0.28) !important;
+  background-color: rgba(35, 41, 52, 0.82) !important;
+  color: #a9d7b7 !important;
+}
+
+html.dark-screen .landing-action-pill,
+html.dark-screen .landing-action-pill *,
+html.dark-screen .tracker-action-button,
+html.dark-screen .tracker-action-button * {
+  color: #171c2d !important;
+}
+
+.tutorial-soft-blur {
+  filter: blur(1.5px);
+  opacity: 0.68;
+  pointer-events: none;
+  transition: filter 220ms ease, opacity 220ms ease;
+}
+
+.tutorial-focus {
+  position: relative;
+  z-index: 91;
+  filter: none;
+  opacity: 1;
+  outline: 3px solid rgba(95, 150, 114, 0.45);
+  outline-offset: 6px;
+  transition: filter 220ms ease, opacity 220ms ease, outline-color 220ms ease;
+}
+
+.tutorial-callout {
+  animation: tutorial-callout-in 220ms ease-out;
+}
+
+html.dark-screen .tutorial-callout {
+  border-color: rgba(247, 239, 230, 0.2) !important;
+  background-color: rgba(35, 41, 52, 0.96) !important;
+  color: #fff8ee !important;
+}
+
+html.dark-screen .tutorial-callout p,
+html.dark-screen .tutorial-callout button:first-of-type {
+  color: #d8cfc4 !important;
+}
+
+@keyframes tutorial-callout-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+:root {
+  --font-editorial: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+    "Times New Roman", serif;
+  --font-mono-stack: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+button,
+a,
+input,
+textarea {
+  font-family: inherit;
+}
+
+::selection {
+  background: #ffd94a;
+  color: #25221f;
+}
+
+.hero-doodle-line {
+  stroke-dasharray: 1500;
+  stroke-dashoffset: 1500;
+}
+
+.hero-doodle-delay {
+  stroke-dasharray: 900;
+  stroke-dashoffset: 900;
+}
+
+.hero-doodle-delay-2 {
+  stroke-dasharray: 650;
+  stroke-dashoffset: 650;
+}
+
+[data-reveal] {
+  will-change: transform, opacity;
+}
+
+.confetti-pop {
+  animation: confetti-pop 760ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes confetti-pop {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.4) rotate(0deg);
+  }
+  16% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--confetti-x), var(--confetti-y), 0) scale(1)
+      rotate(220deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .hero-doodle-line,
+  .hero-doodle-delay,
+  .hero-doodle-delay-2 {
+    stroke-dashoffset: 0;
+  }
 }
